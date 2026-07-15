@@ -1,0 +1,33 @@
+# Risk-Based Test Configuration
+# --------------------------------
+# Each risk area is scored using two factors on a 1-5 scale:
+#   likelihood : how probable a defect is in this area
+#   impact     : business/user damage if it fails
+# risk_score = likelihood * impact  (range 1..25)
+#
+# The dynamic selector runs only the tests whose risk area
+# meets or exceeds the active risk_threshold.
+
+risk_threshold: 12          # tests at/above this score are selected by default
+
+risk_areas:
+  authentication:
+    description: "User login, session handling, credential validation"
+    likelihood: 4
+    impact: 5               # score 20 - security critical
+  checkout_payment:
+    description: "Cart totals and order placement / payment flow"
+    likelihood: 4
+    impact: 5               # score 20 - revenue critical
+  product_catalog:
+    description: "Product listing, search, and filtering"
+    likelihood: 3
+    impact: 4               # score 12 - core discovery path
+  cart_management:
+    description: "Add / remove / update items in cart"
+    likelihood: 3
+    impact: 3               # score 9  - important but recoverable
+  static_content:
+    description: "Footer links, about page, cosmetic text"
+    likelihood: 2
+    impact: 1               # score 2  - low priority

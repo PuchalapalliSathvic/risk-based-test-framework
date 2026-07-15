@@ -16,9 +16,11 @@ Stack: Python, Pytest, and Playwright, organized with the Page Object Model.
 - [Setup](#setup)
 - [Running it](#running-it)
 - [Reading the output](#reading-the-output)
+- [Sample run](#sample-run)
 - [Extending the framework](#extending-the-framework)
 - [Design decisions](#design-decisions)
 - [Known limitations](#known-limitations)
+- [References](#references)
 
 ## The problem this solves
 
@@ -181,6 +183,59 @@ cart_management     9       no
 static_content      2       no
 ```
 
+## Sample run
+
+Here's the framework running against the live SauceDemo site across three thresholds, so you can see the selection change without setting anything up yourself.
+
+**Default threshold (12).** The three highest-risk areas run, the two lowest are dropped. Four tests, ordered highest-risk-first:
+
+```
+$ pytest
+collecting ...
+[risk-selector] threshold=12 selected=4 deselected=2
+collected 6 items / 2 deselected / 4 selected
+
+tests/test_shop.py::test_valid_login PASSED                      [ 25%]
+tests/test_shop.py::test_locked_out_user_blocked PASSED          [ 50%]
+tests/test_shop.py::test_full_checkout PASSED                    [ 75%]
+tests/test_shop.py::test_catalog_lists_products PASSED           [100%]
+
+===================== 4 passed, 2 deselected in 4.50s =====================
+```
+
+**Threshold 20, critical path only.** Now the catalog test (score 12) also drops out. Only the two score-20 areas survive:
+
+```
+$ pytest --risk-threshold 20
+[risk-selector] threshold=20 selected=3 deselected=3
+collected 6 items / 3 deselected / 3 selected
+
+tests/test_shop.py::test_valid_login PASSED                      [ 33%]
+tests/test_shop.py::test_locked_out_user_blocked PASSED          [ 66%]
+tests/test_shop.py::test_full_checkout PASSED                    [100%]
+
+===================== 3 passed, 3 deselected in 2.84s =====================
+```
+
+**Threshold 0, full regression.** Nothing is deselected. All six tests run:
+
+```
+$ pytest --risk-threshold 0
+[risk-selector] threshold=0 selected=6 deselected=0
+collected 6 items
+
+tests/test_shop.py::test_valid_login PASSED                      [ 16%]
+tests/test_shop.py::test_locked_out_user_blocked PASSED          [ 33%]
+tests/test_shop.py::test_full_checkout PASSED                    [ 50%]
+tests/test_shop.py::test_catalog_lists_products PASSED           [ 66%]
+tests/test_shop.py::test_add_and_remove_from_cart PASSED         [ 83%]
+tests/test_shop.py::test_footer_present PASSED                   [100%]
+
+========================== 6 passed in 5.95s ==========================
+```
+
+Same suite, same code, one number changes. The `[risk-selector]` line and Pytest's own selected/deselected count agree on every run, which is the signal that the hook is doing exactly what the config says.
+
 ## Extending the framework
 
 The design goal was that day-to-day changes shouldn't require touching the engine or the hook. In practice:
@@ -217,3 +272,13 @@ Being straight about the edges of the prototype:
 - **Risk scores are static.** They come straight from config. A natural next step is to feed in signals like recent code churn, historical failure rate, or which files a commit touched, and let those adjust the scores automatically.
 - **One test maps to one area.** The `@risk` decorator takes a single area. A test that genuinely spans two areas has to pick the dominant one. Multi-area tagging would be a reasonable extension.
 - **The sample suite is small on purpose.** Six tests is enough to demonstrate selection clearly. The mechanism doesn't change as the suite grows, it just gets more useful.
+
+## References
+
+Background reading that shaped the approach:
+
+- **Risk-based testing** as defined in the ISTQB foundation syllabus: prioritizing test effort by the product risk of each area, where risk is a function of likelihood and impact. This is the model the framework's scoring implements directly.
+- **The likelihood x impact risk matrix**, a standard risk-assessment technique used well beyond testing, adapted here to score functional areas on a 1 to 5 scale.
+- **Page Object Model**, the widely used UI-automation pattern (documented in the Selenium and Playwright project docs) that keeps selectors and page actions out of the test logic.
+- **Pytest hooks**, specifically `pytest_collection_modifyitems`, from the Pytest documentation, which is the mechanism the dynamic selector rides on to deselect and reorder tests at collection time.
+- **[SauceDemo](https://www.saucedemo.com)** by Sauce Labs, the public demo storefront used as the mock application under test.
